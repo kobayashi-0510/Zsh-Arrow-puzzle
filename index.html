@@ -67,6 +67,10 @@
   }
   .icon-btn:hover{background:var(--ink);color:#fff}
   .icon-btn:active{transform:scale(.94)}
+  .icon-btn svg{display:block}
+  .icon-btn .slash{display:none}
+  .icon-btn.muted .wav{display:none}
+  .icon-btn.muted .slash{display:block}
 
   /* ---------- stage ---------- */
   #stage{
@@ -161,6 +165,13 @@
     </div>
     <div id="lives"></div>
     <div class="hud-right">
+      <button class="icon-btn" id="btnSound" title="音效开关 (M)">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+          <path d="M4 9.4h3.4L11.8 6v12L7.4 14.6H4z" fill="currentColor"/>
+          <path class="wav" d="M15.4 8.9a4.4 4.4 0 0 1 0 6.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          <path class="slash" d="M5 19 19 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+      </button>
       <button class="icon-btn" id="btnReset" title="重置本关 (R)">&#8635;</button>
     </div>
   </header>
@@ -251,6 +262,91 @@
     cell: 40, originX: 0, originY: 0, cw: 0, ch: 0,
     anims: [], shake: null, phase: 'play'
   };
+
+  // ---------------- 音效 ----------------
+  // 全部用 Web Audio 现场合成：不引外部音频文件，离线可用，体积为 0
+  var AC = null, MASTER = null, NOISE = null, combo = 0, comboT = 0;
+  var muted = false;
+  try { muted = localStorage.getItem('zsh_arrows_mute') === '1'; } catch (e) {}
+
+  function audio() {
+    if (!AC) {
+      var Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return null;
+      AC = new Ctor();
+      MASTER = AC.createGain();
+      MASTER.gain.value = muted ? 0 : 0.9;
+      MASTER.connect(AC.destination);
+    }
+    if (AC.state === 'suspended') AC.resume();
+    return AC;
+  }
+
+  function tone(from, to, dur, gain, type, delay) {
+    var ac = audio();
+    if (!ac || muted) return;
+    var t0 = ac.currentTime + (delay || 0);
+    var osc = ac.createOscillator(), g = ac.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(from, t0);
+    if (to && to !== from) osc.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g); g.connect(MASTER);
+    osc.start(t0); osc.stop(t0 + dur + 0.03);
+  }
+
+  function hiss(dur, gain, freq, type) {
+    var ac = audio();
+    if (!ac || muted) return;
+    if (!NOISE) {
+      var len = Math.ceil(ac.sampleRate * 0.2);
+      NOISE = ac.createBuffer(1, len, ac.sampleRate);
+      var d = NOISE.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    }
+    var src = ac.createBufferSource(); src.buffer = NOISE;
+    var f = ac.createBiquadFilter();
+    f.type = type || 'bandpass'; f.frequency.value = freq; f.Q.value = 1.1;
+    var g = ac.createGain(); g.gain.value = gain;
+    src.connect(f); f.connect(g); g.connect(MASTER);
+    src.start(ac.currentTime, 0, dur);
+  }
+
+  // 剥离成功：带五声音阶递进的小“啵”，连击越高越亮
+  function sfxPop() {
+    var now = performance.now();
+    combo = (now - comboT > 1400) ? 0 : Math.min(combo + 1, 7);
+    comboT = now;
+    var semis = [0, 2, 4, 7, 9, 12, 14, 16][combo];
+    var f = 392 * Math.pow(2, semis / 12);
+    tone(f * 1.18, f, 0.13, 0.16, 'sine');
+    hiss(0.045, 0.07, 2400, 'highpass');
+  }
+
+  // 被挡住：闷闷的一声，不刺耳
+  function sfxBlock() {
+    tone(190, 120, 0.10, 0.13, 'sine');
+    hiss(0.05, 0.05, 800, 'lowpass');
+  }
+
+  function sfxClick() { hiss(0.03, 0.045, 2800, 'highpass'); }
+
+  function sfxClear() {
+    var notes = [523.25, 659.25, 783.99, 1046.5];
+    for (var i = 0; i < notes.length; i++) tone(notes[i], 0, 0.55, 0.11, 'sine', i * 0.085);
+  }
+
+  function sfxDead() { tone(240, 96, 0.55, 0.14, 'triangle'); }
+
+  function setMuted(v) {
+    muted = !!v;
+    try { localStorage.setItem('zsh_arrows_mute', muted ? '1' : '0'); } catch (e) {}
+    if (MASTER) MASTER.gain.value = muted ? 0 : 0.9;
+    var b = document.getElementById('btnSound');
+    if (b) b.classList.toggle('muted', muted);
+  }
 
   // ---------------- 关卡流程 ----------------
   function loadLevel(i) {
@@ -445,17 +541,21 @@
       else if (a.d[1] === 1) dist = h - 1 - head[1];
       else dist = head[1];
       S.anims.push({ i: idx, t0: performance.now(), dur: 400, sMax: a.p.length - 1 + dist + 1 });
+      sfxPop();
       syncHud();
       if (S.arrows.every(function (v) { return !v.alive; })) {
         S.phase = 'clear';
+        setTimeout(sfxClear, 300);
         setTimeout(finishLevel, 460);
       }
     } else {
       S.lives = Math.max(0, S.lives - 1);
       S.shake = { i: idx, blocker: blocker, t0: performance.now(), dur: 380 };
+      sfxBlock();
       syncHud();
       if (S.lives <= 0) {
         S.phase = 'dead';
+        setTimeout(sfxDead, 160);
         setTimeout(function () { showOverlay('dead'); }, 420);
       }
     }
@@ -510,6 +610,7 @@
     }
     var k = ev.key.toLowerCase();
     if (k === 'r') resetLevel();
+    else if (k === 'm') { setMuted(!muted); if (!muted) sfxClick(); }
     else if (k === 'n' && S.li < LEVELS.length - 1) loadLevel(S.li + 1);
     else if (/^[0-9]$/.test(k)) {
       var n = (k === '0') ? 10 : +k;
@@ -543,7 +644,18 @@
   }
   window.addEventListener('error', function (e) { reportError(e.error || e.message); });
 
-  document.getElementById('btnReset').addEventListener('click', resetLevel);
+  document.getElementById('btnReset').addEventListener('click', function () {
+    sfxClick();
+    resetLevel();
+  });
+
+  document.getElementById('btnSound').addEventListener('click', function () {
+    setMuted(!muted);
+    if (!muted) sfxClick();
+  });
+
+  // 结算层的按钮（NEXT / RETRY / RESTART）统一补一个点击音
+  document.getElementById('ovBtn').addEventListener('click', sfxClick);
 
   // 容器尺寸变化时重新排版，避免画布尺寸与显示尺寸脱节
   if (window.ResizeObserver) {
@@ -560,6 +672,7 @@
     app.classList.add('on');     // 先显示，否则量不到舞台尺寸
     started = true;
     loadLevel(0);
+    sfxClick();
     home.classList.add('gone');
     setTimeout(function () { home.style.display = 'none'; }, 520);
   }
@@ -567,6 +680,7 @@
   document.getElementById('btnStart').addEventListener('click', startGame);
 
   buildHearts();
+  setMuted(muted);   // 把上次的静音状态同步到按钮上
 
   if (!LEVELS.length) {
     document.getElementById('home').style.display = 'none';
