@@ -18,6 +18,8 @@
     color:var(--ink);
     font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
     -webkit-font-smoothing:antialiased;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
     overflow:hidden;
     display:flex;
     justify-content:center;
@@ -106,7 +108,7 @@
     place-items:center;
     min-height:0;
   }
-  canvas{display:block;touch-action:manipulation;cursor:pointer}
+  canvas{display:block;touch-action:none;cursor:pointer}
 
   /* ---------- 2048 倍率选择 ---------- */
   #mult{
@@ -2075,6 +2077,13 @@
     if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
     if (Math.abs(dx) > Math.abs(dy)) gMove(dx > 0 ? 1 : 0);
     else gMove(dy > 0 ? 3 : 2);
+  });
+
+  // 手势被系统打断（来电、切换应用等）时清掉未完成的操作
+  canvas.addEventListener('pointercancel', function () {
+    gSwipe = null;
+    ropeDrag = null;
+    if (S.pk && S.pk.drag) { S.pk.drag = null; }
   });
   window.addEventListener('resize', function () { layout(); });
 
