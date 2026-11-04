@@ -50,7 +50,21 @@
   .lvnum .dim{color:var(--muted)}
 
   #lives{display:flex;gap:7px;align-items:center}
-  .hud-mid{display:flex;align-items:center;justify-content:center}
+  .hud-mid{display:flex;align-items:center;justify-content:center;gap:16px}
+
+  /* ---------- 金币 ---------- */
+  .coin-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;letter-spacing:.06em;font-variant-numeric:tabular-nums;
+    color:var(--ink);
+  }
+  .coin-chip svg{width:14px;height:14px;display:block;flex:0 0 auto}
+  .coin-chip b{font-weight:500}
+  .home-coin{
+    position:absolute;top:24px;left:50%;transform:translateX(-50%);
+    font-size:13px;letter-spacing:.12em;
+  }
+  .home-coin svg{width:16px;height:16px}
   #steps{
     display:none;align-items:baseline;gap:4px;
     font-variant-numeric:tabular-nums;
@@ -134,6 +148,38 @@
     flex:0 0 auto;text-align:center;font-size:10px;letter-spacing:.08em;
     color:#c9c8c3;padding:10px 0 0;
   }
+
+  /* ---------- 选关 ---------- */
+  #levels{
+    position:fixed;inset:0;z-index:70;background:var(--bg);
+    display:none;flex-direction:column;padding:26px 22px 26px;
+  }
+  #levels.on{display:flex}
+  .lv-inner{
+    width:min(430px,92vw);margin:0 auto;
+    display:flex;flex-direction:column;flex:1;min-height:0;
+  }
+  .lv-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding-bottom:13px;border-bottom:1px solid var(--hair)}
+  .lv-back{background:none;border:0;font-family:inherit;font-size:11px;letter-spacing:.14em;color:var(--muted);cursor:pointer;padding:0;text-align:left}
+  .lv-back:hover{color:var(--ink)}
+  .lv-title{font-size:14px;letter-spacing:.18em;text-align:center}
+  .lv-top .coin-chip{justify-self:end;font-size:11px}
+  .lv-top .coin-chip svg{width:12px;height:12px}
+  .lv-sub{font-size:10px;letter-spacing:.2em;color:var(--muted);padding:16px 0 16px;text-align:center}
+  .lv-grid{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:9px;
+    overflow-y:auto;align-content:start;padding-bottom:8px;
+  }
+  .lv-btn{
+    height:50px;display:flex;align-items:center;justify-content:center;
+    border:1.3px solid var(--line);background:#fff;color:var(--ink);
+    font-family:inherit;font-size:12px;letter-spacing:.04em;cursor:pointer;
+    font-variant-numeric:tabular-nums;transition:.14s ease;
+  }
+  .lv-btn.done{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .lv-btn.now{border-color:var(--ink);border-width:1.8px}
+  .lv-btn.lock{color:#cfcec9;background:#f8f7f4;border-color:#eeece7;cursor:default}
+  .lv-btn:not(.lock):hover{transform:translateY(-1px)}
 
   /* ---------- home ---------- */
   #home{
@@ -237,6 +283,13 @@
 </head>
 <body>
 <div id="home">
+  <div class="coin-chip home-coin">
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <circle cx="10" cy="10" r="7.9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="10" cy="10" r="3" fill="currentColor"/>
+    </svg>
+    <b id="homeCoinVal">0</b>
+  </div>
   <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true">
     <path d="M13 49H27V25H42" fill="none" stroke="#111111" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M44 15.5 59 25 44 34.5Z" fill="#111111"/>
@@ -275,6 +328,24 @@
   <div class="home-foot">DEMO v0.1</div>
 </div>
 
+<div id="levels">
+  <div class="lv-inner">
+    <div class="lv-top">
+      <button class="lv-back" id="lvBack">← 返回</button>
+      <div class="lv-title" id="lvTitle">箭头消除</div>
+      <div class="coin-chip">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="10" cy="10" r="3" fill="currentColor"/>
+        </svg>
+        <b id="lvCoinVal">0</b>
+      </div>
+    </div>
+    <div class="lv-sub" id="lvSub">已通关 0 / 0</div>
+    <div class="lv-grid" id="lvGrid"></div>
+  </div>
+</div>
+
 <div id="app">
   <header id="hud">
     <div class="hud-left">
@@ -282,6 +353,13 @@
       <span class="lvnum"><span id="lvNo">01</span><span class="dim" id="lvAll"> / 10</span></span>
     </div>
     <div class="hud-mid">
+      <div class="coin-chip" id="hudCoins">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.9" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <circle cx="10" cy="10" r="3" fill="currentColor"/>
+        </svg>
+        <b id="hudCoinVal">0</b>
+      </div>
       <div id="lives"></div>
       <div id="steps"><b id="stepNum">--</b><span>步</span></div>
     </div>
@@ -295,13 +373,20 @@
       </button>
       <button class="icon-btn water-only" id="btnUndo" title="撤销一步 (Z)">
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-          <path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z" fill="currentColor"/>
+          <path d="M9 5 4 10l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 10h9a5 5 0 0 1 5 5v1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
         </svg>
       </button>
-      <button class="icon-btn" id="btnReset" title="重置本关 (R)">&#8635;</button>
-      <button class="icon-btn" id="btnHome" title="回到主界面 (H)">
+      <button class="icon-btn" id="btnReset" title="重置本关 (R)">
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="currentColor"/>
+          <path d="M19.6 12A7.6 7.6 0 1 1 17.2 6.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M19.9 4.4v4.7h-4.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="btnHome" title="返回上一级 (H)">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+          <path d="M20 12H5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M11 6 5 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
     </div>
@@ -508,6 +593,12 @@
     tone(1400, 900, 0.06, 0.05, 'triangle');
   }
 
+  // 切换倍率：整盘升级的低频“咚”+ 上扬
+  function sfxPower() {
+    tone(110, 340, 0.26, 0.17, 'triangle');
+    hiss(0.16, 0.06, 620, 'lowpass');
+  }
+
   function setMuted(v) {
     muted = !!v;
     try { localStorage.setItem('zsh_arrows_mute', muted ? '1' : '0'); } catch (e) {}
@@ -560,6 +651,7 @@
     S.wmoves = 0;
     S.wanim = null;
     S.whist = [];
+    S.lastGain = 0;
     S.phase = 'play';
     document.getElementById('hint').textContent = '点一个瓶子选中，再点另一个把水倒进去';
     hideOverlay();
@@ -648,6 +740,7 @@
     S.wb = S.whist.pop();
     S.wsel = -1;
     S.wanim = null;
+    S.lastGain = 0;
     S.phase = 'play';
     hideOverlay();
     sfxUndo();
@@ -767,6 +860,113 @@
   var gMult = 1;
   var MULT_OPTS = [1, 4, 8, 16];
 
+  // ============================================================
+  // 金币：通关奖励，跨板块共用一个池子
+  // 第 n 关（从 1 数）= 100 + (n-1) × 10
+  // 只算首次通关，重复玩不再给，避免刷币
+  // ============================================================
+  var COIN_KEY = 'zsh_coins';
+  var COIN_CLAIMED = 'zsh_coins_claimed';
+  var coins = 0;
+  var coinClaimed = {};
+
+  function coinLoad() {
+    try {
+      coins = Math.max(0, parseInt(localStorage.getItem(COIN_KEY) || '0', 10) || 0);
+      coinClaimed = JSON.parse(localStorage.getItem(COIN_CLAIMED) || '{}') || {};
+    } catch (e) { coins = 0; coinClaimed = {}; }
+  }
+  function coinSave() {
+    try {
+      localStorage.setItem(COIN_KEY, String(coins));
+      localStorage.setItem(COIN_CLAIMED, JSON.stringify(coinClaimed));
+    } catch (e) {}
+  }
+  // 返回本次获得的金币；已通关的关卡重玩只给 50
+  function coinReward(mode, idx) {
+    var done = progOf(mode);
+    var gain;
+    if (idx === done) {
+      gain = 100 + idx * 10;
+      progress[mode] = done + 1;
+      progSave();
+    } else if (idx < done) {
+      gain = 50;
+    } else {
+      return 0;
+    }
+    coins += gain;
+    coinSave();
+    syncCoins();
+    return gain;
+  }
+  function syncCoins() {
+    var txt = String(coins);
+    var a = document.getElementById('homeCoinVal');
+    var b = document.getElementById('hudCoinVal');
+    var c = document.getElementById('lvCoinVal');
+    if (a) a.textContent = txt;
+    if (b) b.textContent = txt;
+    if (c) c.textContent = txt;
+  }
+  // 结算面板上追加的金币提示
+  function coinTxt() {
+    return S.lastGain > 0 ? ('　+ ' + S.lastGain + ' 金币') : '';
+  }
+
+  // ============================================================
+  // 选关 + 进度：progress[mode] = 已通关关数（也是「当前关」的序号）
+  // 首通给 100 + 10×(n-1)，重玩已通关的关卡只给 50
+  // ============================================================
+  var PROG_KEY = 'zsh_progress';
+  var progress = {};
+  function progLoad() {
+    try { progress = JSON.parse(localStorage.getItem(PROG_KEY) || '{}') || {}; }
+    catch (e) { progress = {}; }
+  }
+  function progSave() {
+    try { localStorage.setItem(PROG_KEY, JSON.stringify(progress)); } catch (e) {}
+  }
+  function progOf(mode) { return Math.max(0, progress[mode] || 0); }
+
+  var MODE_NAME = { peel: '箭头消除', water: '倒水排序', park: '停车场挪车', rope: '割绳子' };
+  function modeLevels(mode) {
+    return mode === 'water' ? WATER : mode === 'park' ? PARK : mode === 'rope' ? ROPE : LEVELS;
+  }
+
+  var selectMode = 'peel';
+
+  function openSelect(mode) {
+    selectMode = mode;
+    var lv = modeLevels(mode);
+    var done = Math.min(progOf(mode), lv.length);
+    document.getElementById('lvTitle').textContent = MODE_NAME[mode] || '';
+    document.getElementById('lvSub').textContent = '已通关 ' + done + ' / ' + lv.length + ' 关';
+    var grid = document.getElementById('lvGrid');
+    grid.innerHTML = '';
+    for (var i = 0; i < lv.length; i++) {
+      (function (i) {
+        var b = document.createElement('button');
+        b.classList.add('lv-btn');
+        b.classList.add(i < done ? 'done' : i === done ? 'now' : 'lock');
+        b.textContent = String(i + 1);
+        if (i <= done) {
+          b.addEventListener('click', function () { startGame(mode, i); });
+        }
+        grid.appendChild(b);
+      })(i);
+    }
+    syncCoins();
+    document.getElementById('levels').classList.add('on');
+  }
+
+  function closeSelect() {
+    document.getElementById('levels').classList.remove('on');
+    var home = document.getElementById('home');
+    home.style.display = 'flex';
+    home.classList.remove('gone');
+  }
+
   function gBestAll() {
     try { return JSON.parse(localStorage.getItem('zsh_2048_bests') || '{}') || {}; }
     catch (e) { return {}; }
@@ -790,6 +990,13 @@
   }
 
   function gSetMult(v) {
+    var old = gMult;
+    var changed = S.g && v !== old;
+    // 只换「新生成的数值」，棋盘上已有的方块原样保留
+    if (changed) {
+      S.g.shake = { t0: performance.now(), dur: 430 };
+      sfxPower();
+    }
     gMult = v;
     gSyncMult();
     if (S.g) {
@@ -798,7 +1005,7 @@
       S.g.best = gBestOf(v);      // 每个倍率各记各的纪录，不然分数没法比
       syncHud();
     }
-    sfxClick();
+    if (!changed) sfxClick();
   }
 
   function gNewGame() {
@@ -810,6 +1017,7 @@
     };
     gSpawn();
     gSpawn();
+    S.lastGain = 0;
     S.phase = 'play';
     hideOverlay();
     layout();
@@ -826,6 +1034,11 @@
     return null;
   }
 
+  // 各倍率生成的两个数值：低值 = 上一档的高值，保证能合上
+  // ×1:2/4  ×4:4/8  ×8:8/16  ×16:16/32
+  var SPAWN_PAIR = { 1: [2, 4], 4: [4, 8], 8: [8, 16], 16: [16, 32] };
+  var SPAWN_BIG = 0.5;   // 生成其中较大那个的概率
+
   function gSpawn() {
     var empty = [], n = S.g.size;
     for (var y = 0; y < n; y++) {
@@ -833,9 +1046,10 @@
     }
     if (!empty.length) return null;
     var c = empty[Math.floor(Math.random() * empty.length)];
+    var pair = SPAWN_PAIR[S.g.mult] || SPAWN_PAIR[1];
     var t = {
       id: S.g.nextId++,
-      v: (Math.random() < 0.9 ? 2 : 4) * S.g.mult,
+      v: Math.random() < SPAWN_BIG ? pair[1] : pair[0],
       x: c[0], y: c[1], fx: c[0], fy: c[1],
       dying: false, born: performance.now()
     };
@@ -919,6 +1133,7 @@
     S.g.anim = null;
     S.g.tiles = S.g.tiles.filter(function (t) { return !t.dying; });
     gSpawn();
+    gUpdateMax();
 
     if (!S.g.wonShown && S.g.tiles.some(function (t) { return t.v >= S.g.target; })) {
       S.g.wonShown = true;
@@ -930,9 +1145,69 @@
     if (!gCanMove()) {
       S.g.over = true;
       S.phase = 'over';
+      gClearSave();          // 结束的局不再续玩
       sfxDead();
       setTimeout(function () { showOverlay('gameover'); }, 300);
     }
+  }
+
+  // ---------- 历史最高分 ----------
+  var GMAX_KEY = 'zsh_2048_max';
+  function gMax() {
+    try { return parseInt(localStorage.getItem(GMAX_KEY) || '0', 10) || 0; } catch (e) { return 0; }
+  }
+  function gUpdateMax() {
+    if (!S.g) return;
+    if (S.g.score > gMax()) {
+      try { localStorage.setItem(GMAX_KEY, String(S.g.score)); } catch (e) {}
+    }
+  }
+
+  // ---------- 存档 / 续玩 ----------
+  var GSAVE_KEY = 'zsh_2048_save';
+  function gSaveGame() {
+    if (!S.g || S.g.over) return false;
+    var snap = {
+      tiles: S.g.tiles.filter(function (t) { return !t.dying; })
+        .map(function (t) { return { v: t.v, x: t.x, y: t.y, id: t.id }; }),
+      score: S.g.score, moves: S.g.moves, mult: S.g.mult,
+      target: S.g.target, nextId: S.g.nextId, wonShown: S.g.wonShown
+    };
+    try { localStorage.setItem(GSAVE_KEY, JSON.stringify(snap)); } catch (e) { return false; }
+    return true;
+  }
+  function gHasSave() {
+    try { return !!localStorage.getItem(GSAVE_KEY); } catch (e) { return false; }
+  }
+  function gClearSave() {
+    try { localStorage.removeItem(GSAVE_KEY); } catch (e) {}
+  }
+  function gResumeGame() {
+    var snap = null;
+    try { snap = JSON.parse(localStorage.getItem(GSAVE_KEY) || 'null'); } catch (e) { snap = null; }
+    if (!snap || !snap.tiles || !snap.tiles.length) { gClearSave(); return false; }
+    gMult = snap.mult || 1;
+    gSyncMult();
+    S.g = {
+      size: 4, nextId: snap.nextId || 1,
+      tiles: snap.tiles.map(function (t) {
+        return {
+          id: t.id, v: t.v, x: t.x, y: t.y, fx: t.x, fy: t.y,
+          dying: false, born: 0
+        };
+      }),
+      score: snap.score || 0, moves: snap.moves || 0,
+      mult: gMult, target: snap.target || 2048 * gMult,
+      best: gBestOf(gMult),
+      over: false, wonShown: !!snap.wonShown, anim: null
+    };
+    S.lastGain = 0;
+    S.phase = 'play';
+    hideOverlay();
+    layout();
+    syncHud();
+    document.getElementById('hint').textContent = '继续上一局 · 方向键 / WASD 滑动';
+    return true;
   }
 
   function gLayout() {
@@ -975,6 +1250,17 @@
   function gRender(now) {
     ctx.clearRect(0, 0, S.cw, S.ch);
     var gm = gGeom(), n = S.g.size;
+
+    // 切换倍率时的整盘震动
+    if (S.g.shake) {
+      var st = (now - S.g.shake.t0) / S.g.shake.dur;
+      if (st >= 1) S.g.shake = null;
+      else {
+        var amp = (1 - st) * (1 - st) * 11;
+        gm.ox += Math.sin(st * Math.PI * 11) * amp;
+        gm.oy += Math.cos(st * Math.PI * 8) * amp * 0.55;
+      }
+    }
 
     for (var y = 0; y < n; y++) {
       for (var x = 0; x < n; x++) {
@@ -1051,6 +1337,7 @@
       moves: 0,
       busy: 0
     };
+    S.lastGain = 0;
     S.phase = 'play';
     hideOverlay();
     layout();
@@ -1133,6 +1420,7 @@
     if (S.phase !== 'play') return;
     if (S.pk.arrows.every(function (a) { return !a.alive; })) {
       S.phase = 'clear';
+      S.lastGain = coinReward('park', S.pk.i);
       sfxClear();
       setTimeout(function () { showOverlay('parkclear'); }, 260);
       return;
@@ -1249,6 +1537,7 @@
       stars: lv.stars.map(function (s) { return { x: s[0], y: s[1], got: false }; }),
       cuts: 0, acc: 0, last: 0
     };
+    S.lastGain = 0;
     S.phase = 'play';
     hideOverlay();
     layout();
@@ -1308,6 +1597,7 @@
     var c = S.rp.candy, m = S.rp.level.mouth;
     if (Math.hypot(c.x - m[0], c.y - m[1]) < m[2]) {
       S.phase = 'clear';
+      S.lastGain = coinReward('rope', S.rp.i);
       sfxClear();
       setTimeout(function () { showOverlay('ropeclear'); }, 240);
       return true;
@@ -1498,7 +1788,7 @@
       document.getElementById('lvNo').textContent = String(S.g.score);
       document.getElementById('lvAll').textContent = '';
       document.getElementById('moves').textContent = String(S.g.moves).padStart(2, '0');
-      document.getElementById('remain').textContent = 'BEST ' + S.g.best;
+      document.getElementById('remain').textContent = 'BEST ' + S.g.best + ' · MAX ' + gMax();
       return;    }
     kicker.textContent = 'Level';
 
@@ -1792,10 +2082,12 @@
   function finishLevel() {
     if (S.phase !== 'clear') return;
     if (S.game === 'water') {
+      S.lastGain = coinReward('water', S.wi);
       if (S.wi >= WATER.length - 1) showOverlay('all');
       else showOverlay('clear');
       return;
     }
+    S.lastGain = coinReward('peel', S.li);
     if (S.li >= LEVELS.length - 1) showOverlay('all');
     else showOverlay('clear');
   }
@@ -1837,7 +2129,8 @@
       b.textContent = '继续';
       b.onclick = function () {
         hideOverlay();
-        S.phase = 'play';
+        S.lastGain = 0;
+    S.phase = 'play';
         if (!gCanMove()) gFinalize();
       };
       overlay.classList.add('on');
@@ -1846,10 +2139,10 @@
 
     if (kind === 'clear') {
       t.textContent = 'CLEAR';
-      s.textContent = isWater
+      s.textContent = (isWater
         ? ('用了 ' + S.wmoves + ' 步 · 还剩 ' + (S.wlevel.limit - S.wmoves) +
            ' 步 · 本关上限 ' + S.wlevel.limit + ' 步')
-        : (S.moves + ' 步 · 剩余 ' + S.lives + ' 心');
+        : (S.moves + ' 步 · 剩余 ' + S.lives + ' 心')) + coinTxt();
       b.textContent = 'NEXT';
       b.onclick = function () { isWater ? loadWater(S.wi + 1) : loadLevel(S.li + 1); };
     } else if (kind === 'dead') {
@@ -1872,7 +2165,7 @@
       b.onclick = function () { resetLevel(); };
     } else if (kind === 'parkclear') {
       t.textContent = 'CLEAR';
-      s.textContent = '用了 ' + S.pk.moves + ' 步 · 最少 ' + S.pk.level.minMoves + ' 步';
+      s.textContent = '用了 ' + S.pk.moves + ' 步 · 最少 ' + S.pk.level.minMoves + ' 步' + coinTxt();
       b.textContent = 'NEXT';
       b.onclick = function () {
         if (S.pk.i + 1 < PARK.length) loadPark(S.pk.i + 1);
@@ -1892,19 +2185,31 @@
       var total = S.rp.stars.length;
       var gotN = S.rp.stars.filter(function (s) { return s.got; }).length;
       t.textContent = 'CLEAR';
-      s.textContent = total ? ('吃掉 ' + gotN + ' / ' + total + ' 颗星') : '糖果进嘴了';
+      s.textContent = (total ? ('吃掉 ' + gotN + ' / ' + total + ' 颗星') : '糖果进嘴了') + coinTxt();
       b.textContent = 'NEXT';
       b.onclick = function () {
         if (S.rp.i + 1 < ROPE.length) loadRope(S.rp.i + 1);
         else toast('暂无后续关卡');
       };
+    } else if (kind === 'saveq') {
+      k.textContent = '2048';
+      t.textContent = '是否保存本次进度';
+      t.classList.add('zh');
+      s.textContent = '保存后，下次进入可以接着这一局';
+      b.textContent = '保存';
+      b.onclick = function () { gSaveGame(); leaveGame(); };
+      b2.style.display = 'block';
+      b2.textContent = '不保存';
+      b2.onclick = function () { gClearSave(); leaveGame(); };
     } else {
       t.textContent = 'ALL CLEAR';
-      s.textContent = isWater
+      s.textContent = (isWater
         ? WATER.length + ' 关全通 · 倒水排序'
         : S.game === 'park'
           ? PARK.length + ' 关全通 · 停车场挪车'
-          : LEVELS.length + ' 关全通 · 箭头消除';
+          : S.game === 'rope'
+            ? ROPE.length + ' 关全通 · 割绳子'
+            : LEVELS.length + ' 关全通 · 箭头消除') + coinTxt();
       b.textContent = 'RESTART';
       b.onclick = function () {
         if (isWater) loadWater(0);
@@ -2014,11 +2319,13 @@
 
   var homeHideTimer = null;
 
-  function startGame(mode) {
+  function startGame(mode, idx) {
     mode = mode || 'peel';
+    idx = idx || 0;
     if (started || !LEVELS.length) return;
     var home = document.getElementById('home');
     var app = document.getElementById('app');
+    var lvScreen = document.getElementById('levels');
     app.classList.add('on');     // 先显示，否则量不到舞台尺寸
     started = true;
     S.game = mode;
@@ -2026,22 +2333,35 @@
     app.classList.toggle('mode-g2048', mode === 'g2048');
     app.classList.toggle('mode-park', mode === 'park');
     app.classList.toggle('mode-rope', mode === 'rope');
-    if (mode === 'water') loadWater(0);
-    else if (mode === 'g2048') { gMult = 1; gSyncMult(); gNewGame(); }
-    else if (mode === 'park') loadPark(0);
-    else if (mode === 'rope') loadRope(0);
-    else loadLevel(0);
+    if (mode === 'water') loadWater(idx);
+    else if (mode === 'g2048') {
+      if (!gResumeGame()) { gMult = 1; gSyncMult(); gNewGame(); }
+    }
+    else if (mode === 'park') loadPark(idx);
+    else if (mode === 'rope') loadRope(idx);
+    else loadLevel(idx);
     sfxClick();
     clearTimeout(homeHideTimer);
+    lvScreen.classList.remove('on');
     home.classList.add('gone');
     homeHideTimer = setTimeout(function () { home.style.display = 'none'; }, 520);
   }
 
-  // 回到主界面：不保存进度，直接丢弃本局
+  // 返回上一级：从游戏回选关，从选关回主界面
   function goHome() {
     if (!started) return;
+    // 2048 中途退出：先问要不要存档
+    if (S.game === 'g2048' && S.g && !S.g.over && S.g.moves > 0) {
+      showOverlay('saveq');
+      return;
+    }
+    leaveGame();
+  }
+
+  function leaveGame() {
+    if (!started) return;
+    var mode = S.game;
     clearTimeout(homeHideTimer);
-    var home = document.getElementById('home');
     var app = document.getElementById('app');
     app.classList.remove('on');
     S.game = null;
@@ -2050,9 +2370,15 @@
     S.phase = 'idle';
     hideOverlay();
     started = false;
+    sfxClick();
+    if (mode && mode !== 'g2048') {
+      openSelect(mode);      // 有关卡的板块：回选关界面
+      return;
+    }
+    var home = document.getElementById('home');
     home.style.display = 'flex';
     home.classList.remove('gone');
-    sfxClick();
+    closeSelect();
   }
 
   document.getElementById('btnHome').addEventListener('click', goHome);
@@ -2098,16 +2424,30 @@
     if (!btn) return;
     btn.addEventListener('click', function () {
       var mode = MODE_ALIAS[id];
-      if (MODE_READY[mode]) { startGame(mode); return; }
-      sfxBlock();
-      btn.classList.add('nudge');
-      setTimeout(function () { btn.classList.remove('nudge'); }, 280);
-      toast('缺少 ' + (MODE_FILE[mode] || '关卡文件'));
+      if (!MODE_READY[mode]) {
+        sfxBlock();
+        btn.classList.add('nudge');
+        setTimeout(function () { btn.classList.remove('nudge'); }, 280);
+        toast('缺少 ' + (MODE_FILE[mode] || '关卡文件'));
+        return;
+      }
+      sfxClick();
+      // 2048 没有关卡，直接进；其余先进选关
+      if (mode === 'g2048') { startGame('g2048'); return; }
+      openSelect(mode);
     });
+  });
+
+  document.getElementById('lvBack').addEventListener('click', function () {
+    sfxClick();
+    closeSelect();
   });
 
   buildHearts();
   setMuted(muted);   // 把上次的静音状态同步到按钮上
+  coinLoad();
+  progLoad();
+  syncCoins();
 
   // 调试 / 测试钩子
   window.__zsh = {
@@ -2123,7 +2463,10 @@
     pkStep: pkStep,
     pkHasMove: pkHasMove,
     loadPark: loadPark,
-    loadRope: loadRope
+    loadRope: loadRope,
+    getCoins: function () { return coins; },
+    coinReward: coinReward,
+    gSpawn: gSpawn
   };
 
   if (!LEVELS.length) {
